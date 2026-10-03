@@ -57,7 +57,7 @@ jobs:
 
       - name: Package unsigned .ipa
         run: |
-          APP=$(find build-ios -name 'wowee.app' -path '*Release-iphoneos*' | head -1)
+          APP=$(find build-ios -name 'wowee.app' | head -1)
           mkdir -p Payload && cp -R "$APP" Payload/
           zip -qry Wowee-unsigned.ipa Payload
 
