@@ -5,6 +5,7 @@ project(wowee VERSION 1.0.0 LANGUAGES C CXX)
 # APPLE is also true there, so macOS-only code asks for APPLE AND NOT WOWEE_IOS.
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(WOWEE_IOS TRUE)
+    set(CMAKE_MACOSX_BUNDLE OFF)
 endif()
 include(GNUInstallDirs)
 
@@ -1654,6 +1655,7 @@ endif()
 
 # Install targets
 install(TARGETS wowee
+    BUNDLE DESTINATION .
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
