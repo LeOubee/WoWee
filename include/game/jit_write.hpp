@@ -20,7 +20,11 @@
 // this one answer, because a window opened over memory that is not MAP_JIT
 // calls a JIT API this process was never entitled to use, and that call traps
 // the process rather than returning a failure.
-#if defined(__APPLE__) && !defined(HAVE_UNICORN)
+#include "core/platform.hpp"
+
+// iOS: no MAP_JIT, no pthread_jit_write_protect_np. Warden execution is simply
+// unavailable there, which is fine against a server that does not require it.
+#if defined(__APPLE__) && !defined(WOWEE_IOS) && !defined(HAVE_UNICORN)
     #define WOWEE_MAP_JIT 1
 #endif
 

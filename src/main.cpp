@@ -1,3 +1,4 @@
+#include "core/platform.hpp"
 #include "core/application.hpp"
 #include "core/config_paths.hpp"
 #include "core/logger.hpp"
@@ -15,7 +16,7 @@
 // SDLActivity loads libwowee.so and calls SDL_main, the name this header gives
 // main(). SDL2's SDL.h pulled it in; SDL3's does not, and without it the
 // library exports only main and the activity has nothing to call.
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(WOWEE_IOS)
 #include <SDL3/SDL_main.h>
 #endif
 #ifdef __APPLE__
@@ -224,6 +225,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char* argv[]) {
         constexpr const char* kPlatform = "windows";
 #elif defined(__ANDROID__)
         constexpr const char* kPlatform = "android";
+#elif defined(WOWEE_IOS)
+        constexpr const char* kPlatform = "ios";
 #elif defined(__APPLE__)
         constexpr const char* kPlatform = "macos";
 #elif defined(__linux__)

@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
 project(wowee VERSION 1.0.0 LANGUAGES C CXX)
+
+# iPhone / iPad: configure with -DCMAKE_SYSTEM_NAME=iOS (see cmake/ios.cmake).
+# APPLE is also true there, so macOS-only code asks for APPLE AND NOT WOWEE_IOS.
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(WOWEE_IOS TRUE)
+endif()
 include(GNUInstallDirs)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -273,10 +279,15 @@ endif()
 #
 # SDL3 installs its headers as <SDL3/SDL.h>, which is the spelling the sources
 # use, so unlike the SDL2 build there is no include shim to arrange here.
-if(ANDROID)
+if(ANDROID OR WOWEE_IOS)
     include(FetchContent)
-    set(SDL_SHARED ON  CACHE BOOL "" FORCE)   # SDLActivity loads libSDL3.so
-    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    if(WOWEE_IOS)
+        set(SDL_SHARED OFF CACHE BOOL "" FORCE)   # one app binary on iOS
+        set(SDL_STATIC ON  CACHE BOOL "" FORCE)
+    else()
+        set(SDL_SHARED ON  CACHE BOOL "" FORCE)   # SDLActivity loads libSDL3.so
+        set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    endif()
     set(SDL_TEST   OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(SDL3
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
@@ -295,7 +306,9 @@ if(ANDROID)
     # log is Android's logging, which Catch2 writes through as well as this
     # client; android carries ANativeWindow and the asset manager. Directory
     # scope, so every target below gets them without being named.
-    link_libraries(log android)
+    if(ANDROID)
+        link_libraries(log android)
+    endif()
 
     # miniaudio's OpenSL and AAudio backends are only compiled on Android, and
     # they have unused parameters that this build treats as errors. It is
@@ -313,7 +326,10 @@ if(NOT Vulkan_FOUND)
     # MinGW clang to pull in glibc headers (bits/libc-header-start.h) instead of
     # the MinGW sysroot headers.  Skip the host pkg-config path entirely and instead
     # locate Vulkan via vcpkg-installed vulkan-headers or the MinGW toolchain.
-    if(CMAKE_CROSSCOMPILING AND WIN32)
+    if(WOWEE_IOS)
+        include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ios.cmake)
+        set(Vulkan_FOUND TRUE)
+    elseif(CMAKE_CROSSCOMPILING AND WIN32)
         # The cross-compile build script generates a Vulkan import library
         # (libvulkan-1.a) in ${CMAKE_BINARY_DIR}/vulkan-import from the headers.
         set(_VULKAN_IMPORT_DIR "${CMAKE_BINARY_DIR}/vulkan-import")
@@ -403,12 +419,12 @@ endif()
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 find_package(ZLIB REQUIRED)
-if(WIN32)
+if(WIN32 OR WOWEE_IOS)
     find_package(PkgConfig QUIET)
 else()
     find_package(PkgConfig REQUIRED)
 endif()
-if(ANDROID)
+if(ANDROID OR WOWEE_IOS)
     # Not through pkg-config. There is no Android FFmpeg to find and the host's
     # copy answers with the host's include path, which puts glibc headers in
     # front of the NDK sysroot and fails on the first system header. The same
@@ -1197,7 +1213,7 @@ set(WOWEE_HEADERS
 # equivalent (press-and-hold accents).  window.cpp calls into it, so every
 # target that compiles window.cpp must link it.
 set(WOWEE_MACOS_SOURCES)
-if(APPLE)
+if(APPLE AND NOT WOWEE_IOS)
     enable_language(OBJCXX)
     set(WOWEE_MACOS_SOURCES src/core/macos_platform.mm)
 endif()
@@ -1255,6 +1271,9 @@ endif()
 # an executable link asks for a main that no longer exists.
 if(ANDROID)
     add_library(wowee SHARED ${WOWEE_SOURCES} ${WOWEE_HEADERS} ${WOWEE_PLATFORM_SOURCES} ${WOWEE_MACOS_SOURCES})
+elseif(WOWEE_IOS)
+    add_executable(wowee ${WOWEE_SOURCES} ${WOWEE_HEADERS} ${WOWEE_PLATFORM_SOURCES} ${WOWEE_MACOS_SOURCES})
+    wowee_ios_configure_bundle(wowee)
 else()
     add_executable(wowee ${WOWEE_SOURCES} ${WOWEE_HEADERS} ${WOWEE_PLATFORM_SOURCES} ${WOWEE_MACOS_SOURCES})
 endif()
@@ -1605,7 +1624,8 @@ add_custom_command(TARGET wowee POST_BUILD
 
 # Symlink Data/ next to the executable so expansion profiles, opcode tables,
 # and other runtime data files are found when running from the build directory.
-if(NOT WIN32)
+# (iOS copies it into the bundle instead: a symlink out of an app is not valid.)
+if(NOT WIN32 AND NOT WOWEE_IOS)
     add_custom_command(TARGET wowee POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E create_symlink
             ${CMAKE_CURRENT_SOURCE_DIR}/Data

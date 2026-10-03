@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 /**
  * data_paths.hpp - where this client's assets live when nobody has said.
  *
@@ -45,7 +49,11 @@ inline std::filesystem::path userDataRoot() {
 #else
     const char* home = std::getenv("HOME");
     if (home == nullptr || *home == '\0') return {};
-#ifdef __APPLE__
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+    // Documents is what the Files app shows (with UIFileSharingEnabled), which
+    // is how the player puts their extracted game data on the device.
+    return fs::path(home) / "Documents" / "Wowee" / "Data";
+#elif defined(__APPLE__)
     return fs::path(home) / "Library" / "Application Support" / "Wowee" / "Data";
 #else
     // The XDG base directory spec, which is what a Linux or BSD desktop expects

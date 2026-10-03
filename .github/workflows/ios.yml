@@ -1,0 +1,63 @@
+name: iOS (unsigned .ipa)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ios-port]
+
+jobs:
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true   # imgui and vk-bootstrap
+
+      - name: Tools
+        run: brew install cmake shaderc
+
+      - name: MoltenVK for iOS
+        run: |
+          curl -fL -o mvk.tar https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.2/MoltenVK-ios.tar
+          mkdir -p mvk && tar xf mvk.tar -C mvk
+          echo "MVK_DIR=$PWD/mvk/MoltenVK/MoltenVK" >> "$GITHUB_ENV"
+
+      - name: OpenSSL cache
+        id: ossl
+        uses: actions/cache@v4
+        with:
+          path: build-ios-deps
+          key: ios-openssl-3.5.1-${{ hashFiles('tools/build-ios-deps.sh') }}
+
+      - name: Build OpenSSL
+        if: steps.ossl.outputs.cache-hit != 'true'
+        run: tools/build-ios-deps.sh
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-ios -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
+            -DWOWEE_MOLTENVK_DIR="$MVK_DIR" \
+            -DOPENSSL_ROOT_DIR="$PWD/build-ios-deps/arm64" \
+            -DCMAKE_FIND_ROOT_PATH="$PWD/build-ios-deps/arm64" \
+            -DWOWEE_BUILD_TESTS=OFF \
+            -DWOWEE_WARNINGS_AS_ERRORS=OFF
+
+      - name: Build
+        run: cmake --build build-ios --config Release --target wowee -- -sdk iphoneos CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log | tail -n 200
+
+      - name: Package unsigned .ipa
+        run: |
+          APP=$(find build-ios -name 'wowee.app' -path '*Release-iphoneos*' | head -1)
+          mkdir -p Payload && cp -R "$APP" Payload/
+          zip -qry Wowee-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wowee-ios
+          path: |
+            Wowee-unsigned.ipa
+            build.log
