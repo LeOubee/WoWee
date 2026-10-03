@@ -46,7 +46,14 @@ jobs:
             -DWOWEE_WARNINGS_AS_ERRORS=OFF
 
       - name: Build
+        shell: bash
         run: cmake --build build-ios --config Release --target wowee -- -sdk iphoneos CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log | tail -n 200
+
+      - name: Show errors
+
+        if: failure()
+
+        run: grep -nE "error:|fatal error|BUILD FAILED" build.log | head -n 60
 
       - name: Package unsigned .ipa
         run: |
