@@ -45,7 +45,11 @@ std::filesystem::path perUserLogDir() {
     }
 #elif defined(__APPLE__)
     if (const char* home = std::getenv("HOME"); home && *home) {
+        #if defined(__ENVIRONMENT_IPHONE_OS_VERSION_MIN_REQUIRED__)
+        return std::filesystem::path(home) / "Documents" / "Wowee" / "logs";
+#else
         return std::filesystem::path(home) / "Library" / "Logs" / "Wowee";
+#endif
     }
 #else
     if (const char* state = std::getenv("XDG_STATE_HOME"); state && *state) {
