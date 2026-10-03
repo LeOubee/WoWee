@@ -31,7 +31,7 @@ jobs:
 
       - name: Build OpenSSL
         if: steps.ossl.outputs.cache-hit != 'true'
-        run: tools/build-ios-deps.sh
+        run: bash tools/build-ios-deps.sh
 
       - name: Configure
         run: |
