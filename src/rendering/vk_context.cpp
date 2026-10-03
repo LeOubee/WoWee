@@ -3,6 +3,7 @@
 #include <thread>
 #include <mutex>
 #include "rendering/vk_context.hpp"
+#include "core/platform.hpp"
 
 #include <fstream>
 #include "rendering/vk_utils.hpp"
@@ -386,7 +387,14 @@ bool VkContext::createInstance([[maybe_unused]] SDL_Window* window) {
     const char* const* sdlExtNames = SDL_Vulkan_GetInstanceExtensions(&sdlExtCount);
     std::vector<const char*> sdlExts(sdlExtNames, sdlExtNames + sdlExtCount);
 
+#ifdef WOWEE_IOS
+    // iOS has no libvulkan.dylib to dlopen: MoltenVK is a framework. Hand
+    // vk-bootstrap the loader SDL already found instead of letting it search.
+    vkb::InstanceBuilder builder{
+        reinterpret_cast<PFN_vkGetInstanceProcAddr>(SDL_Vulkan_GetVkGetInstanceProcAddr())};
+#else
     vkb::InstanceBuilder builder;
+#endif
     builder.set_app_name("Wowee")
            .set_app_version(VK_MAKE_VERSION(1, 0, 0))
            // 1.3, which is what synchronization2 and dynamic rendering are
